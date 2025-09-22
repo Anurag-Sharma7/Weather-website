@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather App</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #89f7fe, #66a6ff);
+      transition: background 0.5s ease;
+    }
+
+    .app-container {
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+    }
+
+    #themeToggle {
+      border: none;
+      background: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    form {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 8px;
+      background: #66a6ff;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #558de8;
+    }
+
+    .error {
+      color: red;
+      margin-bottom: 10px;
+    }
+
+    #weatherCard {
+      background: #f0f8ff;
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      margin-bottom: 15px;
+      transition: transform 0.3s;
+    }
+
+    #weatherCard:hover {
+      transform: scale(1.02);
+    }
+
+    #recentSearches button {
+      margin: 5px;
+      background: #eee;
+      color: #333;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .dark-theme body {
+      background: #1c1c1c;
+    }
+
+    .dark-theme .app-container {
+      background: rgba(34, 34, 34, 0.9);
+      color: #f5f5f5;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header>
+      <h1>Weather App</h1>
+      <button id="themeToggle">🌙</button>
+    </header>
+    <main>
+      <form id="weatherForm">
+        <input type="text" id="cityInput" placeholder="Enter city" required />
+        <button type="submit">Search</button>
+      </form>
+      <div id="loading" class="hidden">Loading...</div>
+      <div id="error" class="error hidden"></div>
+      <section id="weatherCard" class="hidden">
+        <h2 id="cityName"></h2>
+        <p id="temp"></p>
+        <p id="condition"></p>
+        <button id="unitToggle">°C / °F</button>
+      </section>
+      <section id="recentSearches"></section>
+    </main>
+  </div>
+
+  <script>
+    const API_KEY = "bf5563e23e97e7b3aeb2d0daae4b9194" // 🔑 Replace with your OpenWeatherMap API key
+    const form = document.getElementById("weatherForm");
+    const cityInput = document.getElementById("cityInput");
+    const weatherCard = document.getElementById("weatherCard");
+    const cityName = document.getElementById("cityName");
+    const tempEl = document.getElementById("temp");
+    const conditionEl = document.getElementById("condition");
+    const errorEl = document.getElementById("error");
+    const loadingEl = document.getElementById("loading");
+    const recentSearchesEl = document.getElementById("recentSearches");
+    const unitToggle = document.getElementById("unitToggle");
+    const themeToggle = document.getElementById("themeToggle");
+
+    let isCelsius = true;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const city = cityInput.value.trim();
+      if (!city) return;
+
+      showLoading(true);
+      errorEl.classList.add("hidden");
+      weatherCard.classList.add("hidden");
+
+      try {
+        const res = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${API_KEY}&units=metric`
+        );
+        if (!res.ok) throw new Error("City not found");
+        const data = await res.json();
+
+        displayWeather(data);
+        saveSearch(city);
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove("hidden");
+      } finally {
+        showLoading(false);
+      }
+    });
+
+    function displayWeather(data) {
+      cityName.textContent = data.name;
+      tempEl.textContent = `${data.main.temp.toFixed(1)} °C`;
+      conditionEl.textContent = data.weather[0].description;
+      weatherCard.classList.remove("hidden");
+    }
+
+    function saveSearch(city) {
+      let searches = JSON.parse(localStorage.getItem("recentSearches")) || [];
+      if (!searches.includes(city)) {
+        searches.unshift(city);
+        if (searches.length > 5) searches.pop();
+        localStorage.setItem("recentSearches", JSON.stringify(searches));
+      }
+      renderSearches();
+    }
+
+    function renderSearches() {
+      let searches = JSON.parse(localStorage.getItem("recentSearches")) || [];
+      recentSearchesEl.innerHTML = "";
+      searches.forEach((city) => {
+        const btn = document.createElement("button");
+        btn.textContent = city;
+        btn.addEventListener("click", () => {
+          cityInput.value = city;
+          form.dispatchEvent(new Event("submit"));
+        });
+        recentSearchesEl.appendChild(btn);
+      });
+    }
+
+    function showLoading(isLoading) {
+      loadingEl.classList.toggle("hidden", !isLoading);
+    }
+
+    unitToggle.addEventListener("click", () => {
+      isCelsius = !isCelsius;
+      let temp = parseFloat(tempEl.textContent);
+      if (isNaN(temp)) return;
+      if (isCelsius) {
+        temp = ((temp - 32) * 5) / 9;
+        tempEl.textContent = `${temp.toFixed(1)} °C`;
+      } else {
+        temp = (temp * 9) / 5 + 32;
+        tempEl.textContent = `${temp.toFixed(1)} °F`;
+      }
+    });
+
+    themeToggle.addEventListener("click", () => {
+      document.documentElement.classList.toggle("dark-theme");
+    });
+
+    // Initialize recent searches
+    renderSearches();
+  </script>
+</body>
+</html>
